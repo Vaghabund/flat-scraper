@@ -5,6 +5,7 @@ import logging
 
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram.helpers import escape_markdown
 
 from database import get_recent_listings
 from logger import get_logger
@@ -87,7 +88,7 @@ class TelegramBot:
             for i, listing in enumerate(listings, start=1):
                 price = listing.get("price")
                 price_str = f"€{price:,.0f}" if price is not None else "N/A"
-                address = listing.get("address") or "N/A"
+                address = escape_markdown(listing.get("address") or "N/A", version=1)
                 url = listing.get("url", "")
                 lines.append(f"{i}. [{address} — {price_str}]({url})")
 
@@ -105,7 +106,7 @@ class TelegramBot:
                 "/filter — Show active search criteria\n"
                 "/list — Show 5 most recent listings\n"
                 "/refresh — Trigger a manual scrape now\n"
-                "/stop — Pause notifications\n"
+                "/stop — Show how to stop the bot\n"
                 "/help — Show this help message"
             )
             await update.message.reply_text(help_text, parse_mode="Markdown")
@@ -114,10 +115,12 @@ class TelegramBot:
             await update.message.reply_text("⚠️ An error occurred. Please try again.")
 
     async def stop_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Handle /stop — inform the user that notifications are paused."""
+        """Handle /stop — inform the user that stopping requires scheduler reconfiguration."""
         try:
             await update.message.reply_text(
-                "🔕 Notifications paused. Use /start to resume."
+                "ℹ️ To stop receiving notifications, stop the bot process or "
+                "remove your credentials from the .env file.\n"
+                "Use /start to see the current monitoring criteria."
             )
         except Exception as exc:
             logger.error("Error in /stop handler: %s", exc)
@@ -143,7 +146,9 @@ class TelegramBot:
     def send_message(self, text: str, parse_mode: str = "Markdown") -> None:
         """Send a standalone message to the configured chat.
 
-        Uses :func:`asyncio.run` to dispatch the async Telegram call.
+        If no event loop is running, uses :func:`asyncio.run`; if a loop is
+        already active, schedules the coroutine with
+        :func:`asyncio.run_coroutine_threadsafe`.
 
         Args:
             text: Message body.
@@ -155,6 +160,12 @@ class TelegramBot:
             )
 
         try:
-            asyncio.run(_send())
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                asyncio.run(_send())
+            else:
+                future = asyncio.run_coroutine_threadsafe(_send(), loop)
+                future.result(timeout=30)
         except Exception as exc:
             logger.error("Error sending message: %s", exc)

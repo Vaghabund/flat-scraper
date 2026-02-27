@@ -1,5 +1,7 @@
 """Listing filter service for flat-scraper-bot."""
 
+from telegram.helpers import escape_markdown
+
 from utils import format_price
 
 
@@ -89,10 +91,12 @@ class FilterService:
         effective = {**self.default_criteria, **(criteria or {})}
 
         areas = effective.get("areas", [])
-        areas_str = ", ".join(areas) if areas else "Any"
+        areas_str = ", ".join(escape_markdown(a, version=1) for a in areas) if areas else "Any"
 
         keywords = effective.get("exclude_keywords", [])
-        keywords_str = ", ".join(keywords) if keywords else "None"
+        keywords_str = (
+            ", ".join(escape_markdown(k, version=1) for k in keywords) if keywords else "None"
+        )
 
         price_str = format_price(effective["max_price"])
 

@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from telegram import Bot
 from telegram.error import TelegramError
+from telegram.helpers import escape_markdown
 
 from logger import get_logger
 
@@ -54,6 +55,8 @@ class NotificationService:
     def format_message(self, listing: dict) -> str:
         """Build a Markdown-formatted Telegram message for a listing.
 
+        User-supplied text fields are escaped with
+        :func:`telegram.helpers.escape_markdown` to prevent broken formatting.
         ``None`` values are rendered as "N/A".
 
         Args:
@@ -62,12 +65,14 @@ class NotificationService:
         Returns:
             Markdown string ready to send via Telegram.
         """
-        address = listing.get("address") or "N/A"
+        _e = lambda v: escape_markdown(str(v), version=1)  # noqa: E731
+
+        address = _e(listing.get("address") or "N/A")
         rooms = listing.get("rooms") if listing.get("rooms") is not None else "N/A"
         floor = listing.get("floor") if listing.get("floor") is not None else "N/A"
         price = listing.get("price")
         price_str = f"€{price:,.0f}" if price is not None else "N/A"
-        area = listing.get("area") or "N/A"
+        area = _e(listing.get("area") or "N/A")
         url = listing.get("url", "")
 
         return (
@@ -83,8 +88,11 @@ class NotificationService:
     def send_notification(self, listing: dict) -> bool:
         """Send a Telegram notification for a listing.
 
-        Uses :func:`asyncio.run` with ``python-telegram-bot``'s async
-        :meth:`~telegram.Bot.send_message`.
+        Dispatches via ``python-telegram-bot``'s async
+        :meth:`~telegram.Bot.send_message`.  If no event loop is running the
+        coroutine is executed with :func:`asyncio.run`; if a loop is already
+        running (e.g. from a test harness) it is scheduled with
+        :func:`asyncio.run_coroutine_threadsafe`.
 
         Args:
             listing: Listing dict to notify about.
@@ -94,7 +102,13 @@ class NotificationService:
         """
         message = self.format_message(listing)
         try:
-            asyncio.run(self._send(message))
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                asyncio.run(self._send(message))
+            else:
+                future = asyncio.run_coroutine_threadsafe(self._send(message), loop)
+                future.result(timeout=30)
             logger.info("Notification sent for listing: %s", listing.get("url"))
             return True
         except TelegramError as exc:

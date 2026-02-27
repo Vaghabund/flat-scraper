@@ -50,35 +50,41 @@ def init_db(db_path: str) -> None:
 
 
 def add_listing(db_path: str, data: dict) -> int:
-    """Insert or replace a listing record.
+    """Insert or update a listing record atomically.
 
-    Uses the ``url`` column as the unique key.  Sets ``created_at`` only on
-    new records; always updates ``updated_at``.
+    Uses SQLite's ``ON CONFLICT`` UPSERT syntax so that ``created_at`` and
+    ``notified_at`` are never overwritten on an existing row.  This avoids the
+    race condition of a separate SELECT followed by INSERT OR REPLACE.
 
     Args:
         db_path: Path to the SQLite database.
         data: Dictionary with listing fields.
 
     Returns:
-        The ``rowid`` (``lastrowid``) of the inserted or replaced row.
+        The ``id`` of the inserted or updated row.
     """
     now = datetime.now(timezone.utc).isoformat()
     conn = _connect(db_path)
     try:
-        existing = conn.execute(
-            "SELECT id, created_at FROM listings WHERE url = ?", (data["url"],)
-        ).fetchone()
-
-        created_at = existing["created_at"] if existing else now
-
         conn.execute(
             """
-            INSERT OR REPLACE INTO listings
+            INSERT INTO listings
                 (site_id, url, address, rooms, floor, price, area, description,
-                 scraped_at, notified_at, is_active, created_at, updated_at)
+                 scraped_at, is_active, created_at, updated_at)
             VALUES
                 (:site_id, :url, :address, :rooms, :floor, :price, :area, :description,
-                 :scraped_at, :notified_at, :is_active, :created_at, :updated_at)
+                 :scraped_at, :is_active, :now, :now)
+            ON CONFLICT(url) DO UPDATE SET
+                site_id     = excluded.site_id,
+                address     = excluded.address,
+                rooms       = excluded.rooms,
+                floor       = excluded.floor,
+                price       = excluded.price,
+                area        = excluded.area,
+                description = excluded.description,
+                scraped_at  = excluded.scraped_at,
+                is_active   = excluded.is_active,
+                updated_at  = excluded.updated_at
             """,
             {
                 "site_id": data.get("site_id"),
@@ -90,10 +96,8 @@ def add_listing(db_path: str, data: dict) -> int:
                 "area": data.get("area"),
                 "description": data.get("description"),
                 "scraped_at": data.get("scraped_at", now),
-                "notified_at": data.get("notified_at"),
                 "is_active": data.get("is_active", 1),
-                "created_at": created_at,
-                "updated_at": now,
+                "now": now,
             },
         )
         conn.commit()

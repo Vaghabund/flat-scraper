@@ -5,7 +5,7 @@ and exposes a validated :class:`Config` dataclass singleton called ``config``.
 """
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from dotenv import load_dotenv
 
@@ -50,7 +50,13 @@ def _build_config() -> Config:
         )
 
     database_url = os.getenv("DATABASE_URL", "sqlite:///data/flats.db")
-    database_path = database_url.replace("sqlite:///", "")
+    _sqlite_prefix = "sqlite:///"
+    if database_url.startswith(_sqlite_prefix):
+        database_path = database_url[len(_sqlite_prefix):]
+    elif database_url.startswith("sqlite://"):
+        database_path = database_url[len("sqlite://"):]
+    else:
+        database_path = database_url
 
     areas_raw = os.getenv("AREAS", "")
     areas = [a.strip() for a in areas_raw.split(",") if a.strip()] if areas_raw else []
@@ -60,11 +66,29 @@ def _build_config() -> Config:
         [k.strip() for k in keywords_raw.split(",") if k.strip()] if keywords_raw else []
     )
 
+    def _parse_int(var_name: str, default: str) -> int:
+        raw = os.getenv(var_name, default)
+        try:
+            return int(raw)
+        except ValueError:
+            raise ValueError(
+                f"Environment variable {var_name}={raw!r} must be an integer."
+            )
+
+    def _parse_float(var_name: str, default: str) -> float:
+        raw = os.getenv(var_name, default)
+        try:
+            return float(raw)
+        except ValueError:
+            raise ValueError(
+                f"Environment variable {var_name}={raw!r} must be a number."
+            )
+
     default_criteria: dict = {
-        "min_rooms": int(os.getenv("MIN_ROOMS", "2")),
-        "max_rooms": int(os.getenv("MAX_ROOMS", "4")),
-        "min_floor": int(os.getenv("MIN_FLOOR", "2")),
-        "max_price": float(os.getenv("MAX_PRICE", "1500")),
+        "min_rooms": _parse_int("MIN_ROOMS", "2"),
+        "max_rooms": _parse_int("MAX_ROOMS", "4"),
+        "min_floor": _parse_int("MIN_FLOOR", "2"),
+        "max_price": _parse_float("MAX_PRICE", "1500"),
         "areas": areas,
         "exclude_keywords": exclude_keywords,
     }
@@ -73,7 +97,7 @@ def _build_config() -> Config:
         TELEGRAM_BOT_TOKEN=token,
         TELEGRAM_CHAT_ID=chat_id,
         DATABASE_PATH=database_path,
-        SCRAPE_INTERVAL_MINUTES=int(os.getenv("SCRAPE_INTERVAL_MINUTES", "30")),
+        SCRAPE_INTERVAL_MINUTES=_parse_int("SCRAPE_INTERVAL_MINUTES", "30"),
         DEFAULT_CRITERIA=default_criteria,
         SCOUT24_BASE_URL=os.getenv(
             "SCOUT24_BASE_URL",

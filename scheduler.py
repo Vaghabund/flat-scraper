@@ -57,10 +57,10 @@ class ScraperScheduler:
                     "%s returned %d listings", scraper.__class__.__name__, len(listings)
                 )
                 for listing in listings:
+                    total_scraped += 1
                     if not is_duplicate(self.db_path, listing["url"]):
                         add_listing(self.db_path, listing)
                         total_new += 1
-                total_scraped += 1
             except Exception as exc:
                 logger.error(
                     "Error running scraper %s: %s", scraper.__class__.__name__, exc

@@ -59,7 +59,7 @@ def main() -> None:
     )
 
     # Graceful shutdown
-    def _shutdown(signum, frame):
+    def _shutdown(_signum, _frame):
         logger.info("Shutdown signal received — stopping scheduler …")
         scheduler.stop()
         logger.info("Flat-scraper-bot stopped.")

@@ -4,7 +4,6 @@ import hashlib
 import time
 import random
 from datetime import datetime, timezone
-from urllib.parse import urlparse, urlencode, parse_qs, urlunparse
 
 from .base_scraper import BaseScraper
 
