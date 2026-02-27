@@ -3,7 +3,7 @@
 import hashlib
 import time
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .base_scraper import BaseScraper
 
@@ -114,7 +114,7 @@ class ImmonetScraper(BaseScraper):
                 "price": price,
                 "area": area,
                 "description": None,
-                "scraped_at": datetime.utcnow().isoformat(),
+                "scraped_at": datetime.now(timezone.utc).isoformat(),
             }
         except Exception as exc:
             self.logger.error("Immonet: error parsing item: %s", exc)

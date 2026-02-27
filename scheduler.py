@@ -1,7 +1,7 @@
 """Background scheduler for periodic scraping cycles."""
 
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -45,7 +45,7 @@ class ScraperScheduler:
         For every scraper: fetch listings, store new ones, then notify about
         any matching, un-notified listings.
         """
-        logger.info("=== Scrape cycle started at %s ===", datetime.utcnow())
+        logger.info("=== Scrape cycle started at %s ===", datetime.now(timezone.utc))
         total_scraped = 0
         total_new = 0
         total_notified = 0

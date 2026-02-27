@@ -3,7 +3,7 @@
 import hashlib
 import time
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import urlparse, urlencode, parse_qs, urlunparse
 
 from .base_scraper import BaseScraper
@@ -118,7 +118,7 @@ class ImmoweltScraper(BaseScraper):
                 "price": price,
                 "area": area,
                 "description": None,
-                "scraped_at": datetime.utcnow().isoformat(),
+                "scraped_at": datetime.now(timezone.utc).isoformat(),
             }
         except Exception as exc:
             self.logger.error("Immowelt: error parsing item: %s", exc)

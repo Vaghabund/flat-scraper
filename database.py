@@ -1,7 +1,7 @@
 """SQLite database interface for flat-scraper-bot."""
 
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
@@ -62,7 +62,7 @@ def add_listing(db_path: str, data: dict) -> int:
     Returns:
         The ``rowid`` (``lastrowid``) of the inserted or replaced row.
     """
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     conn = _connect(db_path)
     try:
         existing = conn.execute(
@@ -114,7 +114,7 @@ def get_new_listings(db_path: str, since_hours: int = 24) -> list[dict]:
     Returns:
         List of listing dicts.
     """
-    cutoff = (datetime.utcnow() - timedelta(hours=since_hours)).isoformat()
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=since_hours)).isoformat()
     conn = _connect(db_path)
     try:
         rows = conn.execute(
@@ -133,7 +133,7 @@ def mark_notified(db_path: str, listing_id: int) -> None:
         db_path: Path to the SQLite database.
         listing_id: Primary key of the listing to update.
     """
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     conn = _connect(db_path)
     try:
         conn.execute(

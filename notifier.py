@@ -1,7 +1,7 @@
 """Notification service for sending Telegram messages."""
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from telegram import Bot
 from telegram.error import TelegramError
@@ -44,9 +44,12 @@ class NotificationService:
             return False
         try:
             scraped_at = datetime.fromisoformat(str(scraped_at_raw))
+            # Ensure timezone-aware comparison
+            if scraped_at.tzinfo is None:
+                scraped_at = scraped_at.replace(tzinfo=timezone.utc)
         except ValueError:
             return False
-        return scraped_at >= datetime.utcnow() - timedelta(hours=hours)
+        return scraped_at >= datetime.now(timezone.utc) - timedelta(hours=hours)
 
     def format_message(self, listing: dict) -> str:
         """Build a Markdown-formatted Telegram message for a listing.
