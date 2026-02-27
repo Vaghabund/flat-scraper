@@ -10,8 +10,8 @@ from .base_scraper import BaseScraper
 class Scout24Scraper(BaseScraper):
     """Scraper for ImmobilienScout24 rental listings."""
 
-    def __init__(self, base_url: str) -> None:
-        super().__init__(base_url)
+    def __init__(self, base_url: str, proxies: list[str] | None = None) -> None:
+        super().__init__(base_url, proxies)
 
     def scrape(self) -> list[dict]:
         """Fetch up to 3 pages of results from ImmobilienScout24.
