@@ -45,21 +45,36 @@ class BaseScraper(ABC):
         ),
     ]
 
-    def __init__(self, base_url: str) -> None:
+    def __init__(self, base_url: str, proxies: list[str] | None = None) -> None:
         self.base_url = base_url
         self.logger: logging.Logger = get_logger(self.__class__.__name__)
         self.session = requests.Session()
+        self._proxies: list[str] = proxies or []
 
     @abstractmethod
     def scrape(self) -> list[dict]:
         """Fetch listings and return them as a list of normalised dicts."""
 
+    def _pick_proxy(self) -> dict[str, str] | None:
+        """Return a random proxy dict for :mod:`requests`, or ``None``.
+
+        Returns:
+            A dict suitable for the ``proxies`` kwarg of
+            :meth:`requests.Session.get`, e.g.
+            ``{"http": "http://…", "https": "http://…"}``, or ``None`` when no
+            proxies are configured.
+        """
+        if not self._proxies:
+            return None
+        proxy_url = random.choice(self._proxies)
+        return {"http": proxy_url, "https": proxy_url}
+
     def get_soup(self, url: str, retries: int = 2) -> BeautifulSoup | None:
         """Fetch a URL and return a :class:`BeautifulSoup` object.
 
-        Rotates the User-Agent header on every call and applies an exponential
-        back-off retry strategy.  A random 2–3 second delay is added before
-        each HTTP request to be polite to the target servers.
+        Rotates the User-Agent header and proxy on every call and applies an
+        exponential back-off retry strategy.  A random 2–3 second delay is
+        added before each HTTP request to be polite to the target servers.
 
         Args:
             url: Target URL.
@@ -71,9 +86,16 @@ class BaseScraper(ABC):
         for attempt in range(retries + 1):
             try:
                 self.session.headers.update({"User-Agent": random.choice(self.USER_AGENTS)})
-                self.logger.debug("Fetching %s (attempt %d)", url, attempt + 1)
+                proxy = self._pick_proxy()
+                if proxy:
+                    self.logger.debug(
+                        "Fetching %s via proxy %s (attempt %d)",
+                        url, proxy.get("https"), attempt + 1,
+                    )
+                else:
+                    self.logger.debug("Fetching %s (attempt %d)", url, attempt + 1)
                 time.sleep(random.uniform(2, 3))
-                response = self.session.get(url, timeout=10)
+                response = self.session.get(url, timeout=10, proxies=proxy)
                 response.raise_for_status()
                 return BeautifulSoup(response.text, "html.parser")
             except requests.RequestException as exc:
