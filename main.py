@@ -7,6 +7,7 @@ Initializes all components and starts the Telegram bot with background scraping.
 import os
 import signal
 import sys
+import asyncio
 
 os.makedirs("data", exist_ok=True)
 os.makedirs("logs", exist_ok=True)
@@ -22,6 +23,10 @@ from notifier import NotificationService  # noqa: E402
 from scheduler import ScraperScheduler  # noqa: E402
 from scrapers import Scout24Scraper, ImmoweltScraper, ImmonetScraper  # noqa: E402
 from telegram_bot import TelegramBot  # noqa: E402
+
+
+if sys.platform.startswith("win"):
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 
 def main() -> None:
@@ -76,7 +81,6 @@ def main() -> None:
         f"⏱️ Scraping every {config.SCRAPE_INTERVAL_MINUTES} minutes"
     )
     logger.info(startup_message)
-    bot.send_message(startup_message)
 
     # Block — runs the Telegram polling loop
     bot.run()

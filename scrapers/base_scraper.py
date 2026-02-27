@@ -75,7 +75,7 @@ class BaseScraper(ABC):
                 time.sleep(random.uniform(2, 3))
                 response = self.session.get(url, timeout=10)
                 response.raise_for_status()
-                return BeautifulSoup(response.text, "lxml")
+                return BeautifulSoup(response.text, "html.parser")
             except requests.RequestException as exc:
                 self.logger.error("Error fetching %s: %s", url, exc)
                 if attempt < retries:
