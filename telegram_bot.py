@@ -84,9 +84,16 @@ class TelegramBot:
     async def list_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /list — show the 5 most recently scraped listings."""
         try:
-            listings = get_recent_listings(self.db_path, limit=5)
+            recent_listings = get_recent_listings(self.db_path, limit=100)
+            listings = [
+                listing
+                for listing in recent_listings
+                if self.filter_service.apply_filters(listing)
+            ][:5]
             if not listings:
-                await update.message.reply_text("📭 No listings found in the database yet.")
+                await update.message.reply_text(
+                    "📭 No listings match your active filters yet."
+                )
                 return
 
             lines = ["🏠 *Recent listings:*\n"]
