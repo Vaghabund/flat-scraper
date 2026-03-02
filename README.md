@@ -9,13 +9,13 @@ A production-ready Python bot that monitors German real estate websites for rent
 **Scraped sites:**
 - [ImmobilienScout24](https://www.immobilienscout24.de)
 - [Immowelt](https://www.immowelt.de)
-- [Immonet](https://www.immonet.de)
+- [Facebook Groups](https://www.facebook.com/groups) *(optional, public groups or with session cookie)*
 
 ---
 
 ## Features
 
-- 🔍 Scrapes three major German real estate portals simultaneously
+- 🔍 Scrapes major German rental sources (Scout24, Immowelt, optional Facebook groups)
 - 📬 Instant Telegram notifications for new matching listings
 - 🔁 Configurable scraping interval (default: every 30 minutes)
 - 🧹 Duplicate prevention — every URL is stored and checked before insertion
@@ -74,7 +74,9 @@ All configuration is done through environment variables (or a `.env` file).
 | `LOG_FILE` | Log file path | `logs/scraper.log` |
 | `SCOUT24_BASE_URL` | ImmobilienScout24 search URL | Berlin wohnung-mieten |
 | `IMMOWELT_BASE_URL` | Immowelt search URL | Berlin wohnungen mieten |
-| `IMMONET_BASE_URL` | Immonet search URL | Berlin mieten |
+| `FACEBOOK_GROUP_URLS` | Comma-separated Facebook group URLs to scan | *(empty = disabled)* |
+| `FACEBOOK_SESSION_COOKIE` | Optional Facebook cookie string for non-public groups | *(empty)* |
+| `PROXIES` | Comma-separated HTTP proxies (rotated per request) | *(empty)* |
 
 ---
 
@@ -113,7 +115,8 @@ flat-scraper/
     ├── base_scraper.py   # Abstract base class with shared HTTP helpers
     ├── scout24_scraper.py
     ├── immowelt_scraper.py
-    └── immonet_scraper.py
+    ├── facebook_groups_scraper.py
+    └── immonet_scraper.py  # Legacy scraper (not enabled by default)
 ```
 
 ---

@@ -2,10 +2,25 @@
 
 import logging
 import os
+import sys
 from logging.handlers import TimedRotatingFileHandler
 
 _LOG_DIR = "logs"
 _LOG_FILE = os.path.join(_LOG_DIR, "scraper.log")
+
+
+class SafeTimedRotatingFileHandler(TimedRotatingFileHandler):
+    def doRollover(self) -> None:
+        try:
+            super().doRollover()
+        except PermissionError as exc:
+            sys.stderr.write(f"[logger] skipped log rollover due to file lock: {exc}\n")
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            super().emit(record)
+        except PermissionError as exc:
+            sys.stderr.write(f"[logger] file log write skipped due to file lock: {exc}\n")
 
 
 def get_logger(name: str) -> logging.Logger:
@@ -45,11 +60,12 @@ def get_logger(name: str) -> logging.Logger:
     # Rotating file handler — daily rotation, keep 7 backups
     log_file = os.getenv("LOG_FILE", _LOG_FILE)
     os.makedirs(os.path.dirname(log_file) if os.path.dirname(log_file) else _LOG_DIR, exist_ok=True)
-    file_handler = TimedRotatingFileHandler(
+    file_handler = SafeTimedRotatingFileHandler(
         log_file,
         when="midnight",
         backupCount=7,
         encoding="utf-8",
+        delay=True,
     )
     file_handler.setLevel(level)
     file_handler.setFormatter(formatter)

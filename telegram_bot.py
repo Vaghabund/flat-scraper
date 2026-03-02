@@ -49,6 +49,11 @@ class TelegramBot:
         self.application.add_handler(CommandHandler("help", self.help_command))
         self.application.add_handler(CommandHandler("stop", self.stop_command))
         self.application.add_handler(CommandHandler("refresh", self.refresh_command))
+        self.application.add_error_handler(self.error_handler)
+
+    async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle unexpected Telegram update processing errors."""
+        logger.error("Unhandled Telegram update error: %s", context.error)
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /start — send a welcome message with current criteria."""

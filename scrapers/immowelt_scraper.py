@@ -31,10 +31,28 @@ class ImmoweltScraper(BaseScraper):
                 break
 
             items = (
-                soup.select("div[data-testid='serp-card']")
+                soup.select("div[data-testid='serp-core-classified-card-testid']")
+                or soup.select("div[data-testid^='classified-card-mfe-']")
+                or soup.select("div[data-testid='serp-card']")
                 or soup.select("article.estate-item")
                 or soup.select("div.listItem")
             )
+
+            if not items:
+                expose_links = [
+                    anchor
+                    for anchor in soup.select("a[href]")
+                    if "/expose/" in (anchor.get("href") or "")
+                ]
+                if expose_links:
+                    items = [
+                        anchor.find_parent("div", attrs={"data-testid": "serp-core-classified-card-testid"})
+                        or anchor.find_parent("div", attrs={"data-testid": lambda value: value and value.startswith("classified-card-mfe-")})
+                        or anchor.find_parent("div")
+                        for anchor in expose_links
+                    ]
+                    items = [item for item in items if item is not None]
+
             if not items:
                 self.logger.info("Immowelt: no items on page %d, stopping", page_num)
                 break
@@ -76,7 +94,11 @@ class ImmoweltScraper(BaseScraper):
             Listing dict, or ``None`` on parse failure.
         """
         try:
-            link_tag = item.select_one("a[href*='/expose/']") or item.select_one("a[href]")
+            link_tag = (
+                item.select_one("a[data-testid='card-mfe-covering-link-testid'][href*='/expose/']")
+                or item.select_one("a[href*='/expose/']")
+                or item.select_one("a[href]")
+            )
             if not link_tag:
                 return None
             href = link_tag.get("href", "")
@@ -85,14 +107,16 @@ class ImmoweltScraper(BaseScraper):
             site_id = f"immowelt_{hashlib.md5(url.encode()).hexdigest()[:8]}"
 
             address_tag = (
-                item.select_one(".card-content__address")
+                item.select_one("[data-testid='card-mfe-address-testid']")
+                or item.select_one(".card-content__address")
                 or item.select_one("[data-testid='card-address']")
                 or item.select_one(".location")
             )
             address = self.normalize_address(address_tag.get_text()) if address_tag else None
 
             price_tag = (
-                item.select_one(".card-content__price-information")
+                item.select_one("[data-testid='cardmfe-price-testid']")
+                or item.select_one(".card-content__price-information")
                 or item.select_one("[data-testid='card-price']")
                 or item.select_one(".price")
             )
@@ -100,11 +124,23 @@ class ImmoweltScraper(BaseScraper):
 
             # Key facts (rooms, area m²)
             rooms = None
-            key_facts = item.select(".card-content__keyfacts li, .keyfact, .hard-fact")
+            key_facts = item.select(
+                "[data-testid='cardmfe-keyfacts-testid'] li, .card-content__keyfacts li, .keyfact, .hard-fact"
+            )
             for fact in key_facts:
                 text = fact.get_text(strip=True)
                 if "Zi" in text or "Zimmer" in text:
                     rooms = self.extract_rooms(text)
+
+            if not rooms:
+                title_attr = link_tag.get("title", "")
+                if title_attr:
+                    rooms = self.extract_rooms(title_attr)
+
+            if not price:
+                title_attr = link_tag.get("title", "")
+                if title_attr:
+                    price = self.extract_price(title_attr)
 
             area = address.split(",")[-1].strip() if address and "," in address else None
 

@@ -23,7 +23,8 @@ class Config:
     DEFAULT_CRITERIA: dict
     SCOUT24_BASE_URL: str
     IMMOWELT_BASE_URL: str
-    IMMONET_BASE_URL: str
+    FACEBOOK_GROUP_URLS: list[str]
+    FACEBOOK_SESSION_COOKIE: str
     LOG_LEVEL: str
     LOG_FILE: str
     PROXIES: list[str]
@@ -108,10 +109,12 @@ def _build_config() -> Config:
             "IMMOWELT_BASE_URL",
             "https://www.immowelt.de/liste/berlin/wohnungen/mieten",
         ),
-        IMMONET_BASE_URL=os.getenv(
-            "IMMONET_BASE_URL",
-            "https://www.immonet.de/immobiliensuche/sel.do?city=Berlin&marketingtype=1&objecttype=1",
-        ),
+        FACEBOOK_GROUP_URLS=[
+            url.strip()
+            for url in os.getenv("FACEBOOK_GROUP_URLS", "").split(",")
+            if url.strip()
+        ],
+        FACEBOOK_SESSION_COOKIE=os.getenv("FACEBOOK_SESSION_COOKIE", "").strip(),
         LOG_LEVEL=os.getenv("LOG_LEVEL", "INFO"),
         LOG_FILE=os.getenv("LOG_FILE", "logs/scraper.log"),
         PROXIES=[

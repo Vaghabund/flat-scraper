@@ -51,6 +51,7 @@ class BaseScraper(ABC):
         self.logger: logging.Logger = get_logger(self.__class__.__name__)
         self.session = requests.Session()
         self._proxies: list[str] = list(proxies) if proxies is not None else []
+        self._warmed_hosts: set[str] = set()
 
     @abstractmethod
     def scrape(self) -> list[dict]:
@@ -110,7 +111,20 @@ class BaseScraper(ABC):
         """
         for attempt in range(retries + 1):
             try:
-                self.session.headers.update({"User-Agent": random.choice(self.USER_AGENTS)})
+                parsed_url = urlparse(url)
+                host_root = f"{parsed_url.scheme}://{parsed_url.netloc}"
+                self.session.headers.update(
+                    {
+                        "User-Agent": random.choice(self.USER_AGENTS),
+                        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                        "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
+                        "Cache-Control": "no-cache",
+                        "Pragma": "no-cache",
+                        "DNT": "1",
+                        "Upgrade-Insecure-Requests": "1",
+                        "Referer": host_root + "/",
+                    }
+                )
                 proxy = self._pick_proxy()
                 if proxy:
                     self.logger.debug(
@@ -119,8 +133,29 @@ class BaseScraper(ABC):
                     )
                 else:
                     self.logger.debug("Fetching %s (attempt %d)", url, attempt + 1)
+
+                if parsed_url.netloc not in self._warmed_hosts:
+                    try:
+                        self.session.get(host_root, timeout=10, proxies=proxy)
+                    except requests.RequestException:
+                        pass
+                    self._warmed_hosts.add(parsed_url.netloc)
+
                 time.sleep(random.uniform(2, 3))
                 response = self.session.get(url, timeout=10, proxies=proxy)
+                if response.status_code in {401, 403, 429}:
+                    page_title = ""
+                    title_match = re.search(
+                        r"<title[^>]*>(.*?)</title>", response.text, flags=re.IGNORECASE | re.DOTALL
+                    )
+                    if title_match:
+                        page_title = re.sub(r"\s+", " ", title_match.group(1)).strip()
+                    self.logger.warning(
+                        "Blocked response for %s: status=%s title=%r",
+                        url,
+                        response.status_code,
+                        page_title,
+                    )
                 response.raise_for_status()
                 return BeautifulSoup(response.text, "html.parser")
             except requests.RequestException as exc:
