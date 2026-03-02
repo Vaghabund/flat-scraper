@@ -1,6 +1,7 @@
 """Immowelt scraper for flat-scraper-bot."""
 
 import hashlib
+import re
 import time
 import random
 from datetime import datetime, timezone
@@ -108,6 +109,7 @@ class ImmoweltScraper(BaseScraper):
 
             address_tag = (
                 item.select_one("[data-testid='card-mfe-address-testid']")
+                or item.select_one("[data-testid='cardmfe-description-box-address']")
                 or item.select_one(".card-content__address")
                 or item.select_one("[data-testid='card-address']")
                 or item.select_one(".location")
@@ -125,12 +127,19 @@ class ImmoweltScraper(BaseScraper):
             # Key facts (rooms, area m²)
             rooms = None
             key_facts = item.select(
-                "[data-testid='cardmfe-keyfacts-testid'] li, .card-content__keyfacts li, .keyfact, .hard-fact"
+                "[data-testid='cardmfe-keyfacts-testid'], [data-testid='cardmfe-keyfacts-testid'] li, .card-content__keyfacts li, .keyfact, .hard-fact"
             )
             for fact in key_facts:
                 text = fact.get_text(strip=True)
-                if "Zi" in text or "Zimmer" in text:
-                    rooms = self.extract_rooms(text)
+                room_match = re.search(r"(\d+(?:[.,]\d+)?)\s*Zimmer", text, flags=re.IGNORECASE)
+                if room_match:
+                    rooms = int(float(room_match.group(1).replace(",", ".")))
+                    break
+
+            if not rooms:
+                room_element = item.find(string=re.compile(r"\b\d+(?:[.,]\d+)?\s*Zimmer\b", re.IGNORECASE))
+                if room_element:
+                    rooms = self.extract_rooms(str(room_element))
 
             if not rooms:
                 title_attr = link_tag.get("title", "")
@@ -142,7 +151,13 @@ class ImmoweltScraper(BaseScraper):
                 if title_attr:
                     price = self.extract_price(title_attr)
 
-            area = address.split(",")[-1].strip() if address and "," in address else None
+            area = None
+            if address and "," in address:
+                parts = [part.strip() for part in address.split(",") if part.strip()]
+                if len(parts) >= 3:
+                    area = parts[-2]
+                elif parts:
+                    area = parts[-1]
 
             return {
                 "site_id": site_id,

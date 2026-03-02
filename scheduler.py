@@ -58,8 +58,9 @@ class ScraperScheduler:
                 )
                 for listing in listings:
                     total_scraped += 1
-                    if not is_duplicate(self.db_path, listing["url"]):
-                        add_listing(self.db_path, listing)
+                    is_existing = is_duplicate(self.db_path, listing["url"])
+                    add_listing(self.db_path, listing)
+                    if not is_existing:
                         total_new += 1
             except Exception as exc:
                 logger.error(
