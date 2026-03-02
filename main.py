@@ -39,9 +39,9 @@ def main() -> None:
 
     # Scrapers
     scrapers = [
-        Scout24Scraper(config.SCOUT24_BASE_URL),
-        ImmoweltScraper(config.IMMOWELT_BASE_URL),
-        ImmonetScraper(config.IMMONET_BASE_URL),
+        Scout24Scraper(config.SCOUT24_BASE_URL, config.PROXIES),
+        ImmoweltScraper(config.IMMOWELT_BASE_URL, config.PROXIES),
+        ImmonetScraper(config.IMMONET_BASE_URL, config.PROXIES),
     ]
 
     # Services

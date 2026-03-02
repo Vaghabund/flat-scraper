@@ -26,6 +26,7 @@ class Config:
     IMMONET_BASE_URL: str
     LOG_LEVEL: str
     LOG_FILE: str
+    PROXIES: list[str]
 
 
 def _build_config() -> Config:
@@ -113,6 +114,11 @@ def _build_config() -> Config:
         ),
         LOG_LEVEL=os.getenv("LOG_LEVEL", "INFO"),
         LOG_FILE=os.getenv("LOG_FILE", "logs/scraper.log"),
+        PROXIES=[
+            p.strip()
+            for p in os.getenv("PROXIES", "").split(",")
+            if p.strip()
+        ],
     )
 
 
