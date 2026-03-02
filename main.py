@@ -130,6 +130,7 @@ def main() -> None:
         scrapers, config.DATABASE_PATH, filter_service, notifier, config.DEFAULT_CRITERIA
     )
     scheduler.start(config.SCRAPE_INTERVAL_MINUTES)
+    scheduler.trigger_now()
 
     # Telegram bot
     bot = TelegramBot(
