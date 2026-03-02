@@ -5,6 +5,7 @@ import random
 import re
 import time
 from abc import ABC, abstractmethod
+from urllib.parse import urlparse, urlunparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -49,7 +50,7 @@ class BaseScraper(ABC):
         self.base_url = base_url
         self.logger: logging.Logger = get_logger(self.__class__.__name__)
         self.session = requests.Session()
-        self._proxies: list[str] = proxies or []
+        self._proxies: list[str] = list(proxies) if proxies is not None else []
 
     @abstractmethod
     def scrape(self) -> list[dict]:
@@ -68,6 +69,30 @@ class BaseScraper(ABC):
             return None
         proxy_url = random.choice(self._proxies)
         return {"http": proxy_url, "https": proxy_url}
+
+    @staticmethod
+    def _redact_proxy_url(proxy_url: str) -> str:
+        """Return *proxy_url* with any embedded credentials removed.
+
+        Replaces ``user:pass@`` in the netloc with ``***@`` so that proxy
+        host/port information is still useful in logs while passwords are not
+        leaked.
+
+        Args:
+            proxy_url: Full proxy URL, e.g. ``http://user:pass@host:8080``.
+
+        Returns:
+            URL with credentials replaced by ``***``, or the original string
+            if it cannot be parsed.
+        """
+        try:
+            parsed = urlparse(proxy_url)
+            if "@" in parsed.netloc:
+                host_port = parsed.netloc.split("@")[-1]
+                parsed = parsed._replace(netloc=f"***@{host_port}")
+            return urlunparse(parsed)
+        except Exception:
+            return "***"
 
     def get_soup(self, url: str, retries: int = 2) -> BeautifulSoup | None:
         """Fetch a URL and return a :class:`BeautifulSoup` object.
@@ -90,7 +115,7 @@ class BaseScraper(ABC):
                 if proxy:
                     self.logger.debug(
                         "Fetching %s via proxy %s (attempt %d)",
-                        url, proxy.get("https"), attempt + 1,
+                        url, self._redact_proxy_url(proxy.get("https", "")), attempt + 1,
                     )
                 else:
                     self.logger.debug("Fetching %s (attempt %d)", url, attempt + 1)
